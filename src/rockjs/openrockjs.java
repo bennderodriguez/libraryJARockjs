@@ -6,11 +6,15 @@
 package rockjs;
 
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -33,20 +37,23 @@ public class openrockjs {
     private String pfdata;
     private String SO;
     private String intError;
+    private String path;
 
-    public openrockjs() {
+    public openrockjs() throws IOException {
         this.resulset = "";
 
+        //Ubico el propertiesPath donde se encuentra el JAR RockJS
+        File jarPath = new File(openrockjs.class.getProtectionDomain().getCodeSource().getLocation().getPath());
+        String propertiesPath = jarPath.getParentFile().getAbsolutePath();
+        //Seteo el aboslute JAR PATH
+        this.path = propertiesPath;
+        //Cargo el arcivo de confiuración
         Properties config = new Properties();
         try {
-
-            File jarPath = new File(openrockjs.class.getProtectionDomain().getCodeSource().getLocation().getPath());
-            String propertiesPath = jarPath.getParentFile().getAbsolutePath();
-            System.out.println(" propertiesPath-" + propertiesPath);
+            System.out.println("Your confutation file must be in  propertiesPath->" + propertiesPath);
             config.load(new FileInputStream(propertiesPath + "/RockJSConf.properties"));
-
-            //config.load(new FileReader("RockJSConf.properties"));
-            //Evaluamos el SO en el que se esta trabajndo
+            //iniciamos el path de RockJS
+            //Evaluamos el SO en el que se esta trabajando
             this.SO = config.getProperty("server");
             String exec;
             switch (getSO().toString()) {
@@ -58,16 +65,20 @@ public class openrockjs {
                     exec = "\\_progres.exe";
                     break;
                 default:
-                    exec = " Error in Application server operating system value: " + getSO() + "check the configuration file ";
+                    exec = " Error in Application server operating system value: " + getSO() + " check the configuration file RockJSConf.properties ";
                     setIntError(exec);
+                    error();
                     break;
             }
-
+            
+            //Seteo DLC, PATHPROG, PRECGI
             setProgressExe(config.getProperty("DLC") + exec);
             setWorckSpace(config.getProperty("PATHPROG"));
             setPfdata(config.getProperty("PROCGI"));
 
         } catch (IOException ex) {
+            this.error(ex);
+            setIntError(" The system can not find the RockJSConf.properties file in the path " + getPath());
             Logger.getLogger(openrockjs.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
@@ -110,13 +121,38 @@ public class openrockjs {
         //mientras haya lineas en Salida
 
         while (aux != null) {
-            // Se escribe la linea en pantalla 
-            //System.out.println(aux);
-            this.resulset += aux;
+
+            if (aux.contains("**")) {
+                setIntError("Progress internal error " + aux);
+                error();
+                return false;
+            } else {
+                // Se escribe la linea en pantalla 
+                this.resulset += aux;
+            }
             // y se lee la siguiente. 
             aux = br.readLine();
         }
         return true;
+    }
+
+    private void error() throws IOException {
+        String ruta = getPath() + "\\error.log";
+        File archivo = new File(ruta);
+        BufferedWriter bw;
+
+        DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss");
+        LocalDateTime now = LocalDateTime.now();
+        System.out.println(dtf.format(now));
+
+        if (archivo.exists()) {
+            bw = new BufferedWriter(new FileWriter(archivo, true));
+            bw.write("[ " + dtf.format(now) + " ] " + getIntError() + "\n");
+        } else {
+            bw = new BufferedWriter(new FileWriter(archivo, true));
+            bw.write("[ " + dtf.format(now) + " ] " + getIntError() + "\n");
+        }
+        bw.close();
     }
 
     public String getResulset() {
@@ -151,12 +187,39 @@ public class openrockjs {
         return SO;
     }
 
-    private String getIntError() {
+    public String getIntError() {
         return intError;
     }
 
     private void setIntError(String intError) {
         this.intError += intError;
+    }
+
+    public String getPath() {
+        return path;
+    }
+
+    /**
+     * Muestra en error.log las excepciones ex de try cath
+     * @param ex
+     * @throws IOException 
+     */
+    private void error(IOException ex) throws IOException {
+        String ruta = getPath() + "\\error.log";
+        File archivo = new File(ruta);
+        BufferedWriter bw;
+
+        DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss");
+        LocalDateTime now = LocalDateTime.now();
+
+        if (archivo.exists()) {
+            bw = new BufferedWriter(new FileWriter(archivo, true));
+            bw.write("[ " + dtf.format(now) + " ] " + ex.toString() + "\n");
+        } else {
+            bw = new BufferedWriter(new FileWriter(archivo, true));
+            bw.write("[ " + dtf.format(now) + " ] " + ex.toString() + "\n");
+        }
+        bw.close();
     }
 
 }
